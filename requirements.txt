@@ -1,0 +1,6 @@
+flask
+flasgger
+beautifulsoup4
+requests
+gunicorn
+Flask-JWT-Extended
