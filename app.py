@@ -149,7 +149,7 @@ def get_production(year):
 @app.route('/processing/<int:year>/<string:category>', methods=['GET'])
 @jwt_required()
 @swag_from({
-    'tags': ['processing'],
+    'tags': ['Processing'],
     'parameters': [
         {
             'name': 'year',
@@ -249,7 +249,7 @@ def processing(year, category):
 @app.route('/commercialization/<int:year>', methods=['GET'])
 @jwt_required()
 @swag_from({
-    'tags': ['Comercialização'],
+    'tags': ['Commercialization'],
     'parameters': [
         {
             'name': 'year',
@@ -271,8 +271,7 @@ def processing(year, category):
                             'Produto': 'VINHO DE MESA',
                             'Quantidade (L)': '187.016.848',
                             'Subtipos': [
-                                {'Subproduto': 'Tinto', 'Quantidade (L)': '165.097.539'},
-                                ...
+                                {'Subproduto': 'Tinto', 'Quantidade (L)': '165.097.539'}
                             ]
                         }
                     ]
@@ -370,6 +369,8 @@ def import_data(year, category):
     """
     Import data by year and category
     ---
+    tags:
+      - Import
     parameters:
       - name: year
         in: path
@@ -422,6 +423,8 @@ def export_data(year, category):
     """
     Export data by year and category
     ---
+    tags:
+      - Export
     parameters:
       - name: year
         in: path
