@@ -365,6 +365,7 @@ def scrape_trade_data(base_url, year, category, category_map):
 
 
 @app.route('/import/<year>/<category>', methods=['GET'])
+@jwt_required()
 def import_data(year, category):
     """
     Import data by year and category
@@ -419,6 +420,7 @@ def import_data(year, category):
 
 
 @app.route('/export/<year>/<category>', methods=['GET'])
+@jwt_required()
 def export_data(year, category):
     """
     Export data by year and category
