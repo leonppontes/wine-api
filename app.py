@@ -136,8 +136,16 @@ def get_production(year):
             data[current_category] = {"Quantidade (L.)": value}
         elif "tb_subitem" in cols[0].get("class", []) and current_category:
             data[current_category][name] = value
+    
+    tfoot = table.find('tfoot', class_='tb_total')
+    if tfoot:
+        total_cells = tfoot.find_all('td')
+        if len(total_cells) == 2:
+            total = total_cells[1].text.strip()
+    
+    return jsonify({'ano': year, 'total': total, 'dados': data})
 
-    return jsonify(data)
+
 @app.route('/processing/<int:year>/<string:category>', methods=['GET'])
 @jwt_required()
 @swag_from({
@@ -227,7 +235,94 @@ def processing(year, category):
                 }
                 current_category['Subcategorias'].append(sub)
 
-        return jsonify({'ano': year, 'categoria': category, 'dados': data})
+        tfoot = table.find('tfoot', class_='tb_total')
+        if tfoot:
+            total_cells = tfoot.find_all('td')
+            if len(total_cells) == 2:
+                total = total_cells[1].text.strip()
+
+        return jsonify({'ano': year, 'total': total, 'categoria': category, 'dados': data})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/commercialization/<int:year>', methods=['GET'])
+@jwt_required()
+@swag_from({
+    'tags': ['Comercialização'],
+    'parameters': [
+        {
+            'name': 'year',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'Year of the data (e.g. 2023)'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Hierarchical commercialization data with total',
+            'examples': {
+                'application/json': {
+                    'ano': 2023,
+                    'total': '472.291.085',
+                    'dados': [
+                        {
+                            'Produto': 'VINHO DE MESA',
+                            'Quantidade (L)': '187.016.848',
+                            'Subtipos': [
+                                {'Subproduto': 'Tinto', 'Quantidade (L)': '165.097.539'},
+                                ...
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    }
+})
+def commercialization(year):
+    url = f"http://vitibrasil.cnpuv.embrapa.br/index.php?ano={year}&opcao=opt_04"
+    
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        table = soup.find('table', class_='tb_base tb_dados')
+
+        data = []
+        current_produto = None
+        total = None
+
+        for row in table.find_all('tr'):
+            cols = row.find_all('td')
+            if len(cols) != 2:
+                continue
+
+            cell_class = cols[0].get('class')[0] if cols[0].get('class') else ''
+
+            if cell_class == 'tb_item':
+                current_produto = {
+                    'Produto': cols[0].text.strip(),
+                    'Quantidade (L)': cols[1].text.strip(),
+                    'Subtipos': []
+                }
+                data.append(current_produto)
+
+            elif cell_class == 'tb_subitem' and current_produto:
+                subproduto = {
+                    'Subproduto': cols[0].text.strip(),
+                    'Quantidade (L)': cols[1].text.strip()
+                }
+                current_produto['Subtipos'].append(subproduto)
+
+        # Extract total from <tfoot>
+        tfoot = table.find('tfoot', class_='tb_total')
+        if tfoot:
+            total_cells = tfoot.find_all('td')
+            if len(total_cells) == 2:
+                total = total_cells[1].text.strip()
+
+        return jsonify({'ano': year, 'total': total, 'dados': data})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
