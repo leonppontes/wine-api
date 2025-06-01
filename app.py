@@ -138,6 +138,100 @@ def get_production(year):
             data[current_category][name] = value
 
     return jsonify(data)
+@app.route('/processing/<int:year>/<string:category>', methods=['GET'])
+@jwt_required()
+@swag_from({
+    'tags': ['processing'],
+    'parameters': [
+        {
+            'name': 'year',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'Year of the data (e.g. 2023)'
+        },
+        {
+            'name': 'category',
+            'in': 'path',
+            'type': 'string',
+            'required': True,
+            'enum': ['vinifera', 'americans', 'table', 'unclassified'],
+            'description': 'Category of grape (vinifera, americans, table, unclassified)'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Hierarchical grape processing data',
+            'examples': {
+                'application/json': {
+                    'ano': 2023,
+                    'categoria': 'vinifera',
+                    'dados': [
+                        {
+                            'Categoria': 'TINTAS',
+                            'Quantidade (Kg)': '35.881.118',
+                            'Subcategorias': [
+                                {'Cultivar': 'Alicante Bouschet', 'Quantidade (Kg)': '4.108.858'},
+                                {'Cultivar': 'Outro nome', 'Quantidade (Kg)': '1.000.000'}
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    }
+})
+def processing(year, category):
+    category_map = {
+        'vinifera': 'subopt_01',
+        'americans': 'subopt_02',
+        'table': 'subopt_03',
+        'unclassified': 'subopt_04'
+    }
+
+    if category not in category_map:
+        return jsonify({'error': 'Invalid category'}), 400
+
+    sopcao = category_map[category]
+    url = f'http://vitibrasil.cnpuv.embrapa.br/index.php?ano={year}&subopcao={sopcao}&opcao=opt_03'
+
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        table = soup.find('table', class_='tb_base tb_dados')
+
+        data = []
+        current_category = None
+
+        for row in table.find_all('tr'):
+            cols = row.find_all('td')
+            if len(cols) != 2:
+                continue
+
+            cell_class = cols[0].get('class')[0] if cols[0].get('class') else ''
+
+            if cell_class == 'tb_item':
+                # Start a new category
+                current_category = {
+                    'Categoria': cols[0].text.strip(),
+                    'Quantidade (Kg)': cols[1].text.strip(),
+                    'Subcategorias': []
+                }
+                data.append(current_category)
+
+            elif cell_class == 'tb_subitem' and current_category:
+                # Add to current category
+                sub = {
+                    'Cultivar': cols[0].text.strip(),
+                    'Quantidade (Kg)': cols[1].text.strip()
+                }
+                current_category['Subcategorias'].append(sub)
+
+        return jsonify({'ano': year, 'categoria': category, 'dados': data})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route("/")
 def index():
