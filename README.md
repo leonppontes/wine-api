@@ -70,8 +70,6 @@ Bearer <your_token>
 
 ## 📚 Endpoints
 
-### 🟢 Public
-
 #### `GET /`
 Health check or root welcome message.
 
@@ -132,7 +130,6 @@ Response example:
 
 ---
 
-### 🔒 Protected (require JWT)
 
 #### `GET /production/<year>`
 **Tags**: `Production`
