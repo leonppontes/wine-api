@@ -327,6 +327,145 @@ def commercialization(year):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def scrape_trade_data(base_url, year, category, category_map):
+    subopcao = category_map.get(category.lower())
+    if not subopcao:
+        return jsonify({"error": "Invalid category"}), 400
+
+    url = f"{base_url}&ano={year}&subopcao={subopcao}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to fetch data"}), 500
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    table = soup.find("table", class_="tb_base tb_dados")
+    if not table:
+        return jsonify({"error": "No data table found"}), 404
+
+    data = []
+    for row in table.find("tbody").find_all("tr"):
+        cols = [col.get_text(strip=True).replace(".", "").replace(",", ".") for col in row.find_all("td")]
+        if len(cols) == 3:
+            country = cols[0]
+            quantity = float(cols[1]) if cols[1] != '-' else None
+            value = float(cols[2]) if cols[2] != '-' else None
+            data.append({
+                "country": country,
+                "quantity_kg": quantity,
+                "value_usd": value
+            })
+
+    total_row = table.find("tfoot", class_="tb_total").find("tr")
+    total_cols = [td.get_text(strip=True).replace(".", "").replace(",", ".") for td in total_row.find_all("td")]
+    total = {
+        "total_quantity_kg": float(total_cols[1]),
+        "total_value_usd": float(total_cols[2])
+    }
+
+    return jsonify({"data": data, "total": total})
+
+
+@app.route('/import/<year>/<category>', methods=['GET'])
+def import_data(year, category):
+    """
+    Import data by year and category
+    ---
+    parameters:
+      - name: year
+        in: path
+        type: string
+        required: true
+      - name: category
+        in: path
+        type: string
+        required: true
+        enum: ["table", "sparkling", "fresh", "raisins", "juice"]
+    responses:
+      200:
+        description: Import data by country
+        schema:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  country:
+                    type: string
+                  quantity_kg:
+                    type: number
+                  value_usd:
+                    type: number
+            total:
+              type: object
+              properties:
+                total_quantity_kg:
+                  type: number
+                total_value_usd:
+                  type: number
+    """
+    category_map = {
+        'table': 'subopt_01',
+        'sparkling': 'subopt_02',
+        'fresh': 'subopt_03',
+        'raisins': 'subopt_04',
+        'juice': 'subopt_05'
+    }
+
+    base_url = "http://vitibrasil.cnpuv.embrapa.br/index.php?opcao=opt_05"
+    return scrape_trade_data(base_url, year, category, category_map)
+
+
+@app.route('/export/<year>/<category>', methods=['GET'])
+def export_data(year, category):
+    """
+    Export data by year and category
+    ---
+    parameters:
+      - name: year
+        in: path
+        type: string
+        required: true
+      - name: category
+        in: path
+        type: string
+        required: true
+        enum: ["table", "sparkling", "fresh", "juice"]
+    responses:
+      200:
+        description: Export data by country
+        schema:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  country:
+                    type: string
+                  quantity_kg:
+                    type: number
+                  value_usd:
+                    type: number
+            total:
+              type: object
+              properties:
+                total_quantity_kg:
+                  type: number
+                total_value_usd:
+                  type: number
+    """
+    category_map = {
+        'table': 'subopt_01',
+        'sparkling': 'subopt_02',
+        'fresh': 'subopt_03',
+        'juice': 'subopt_04'
+    }
+
+    base_url = "http://vitibrasil.cnpuv.embrapa.br/index.php?opcao=opt_06"
+    return scrape_trade_data(base_url, year, category, category_map)
 
 @app.route("/")
 def index():
