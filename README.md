@@ -185,4 +185,4 @@ Use it to explore all routes, parameters, and responses interactively.
 
 ## 📃 License
 
-MIT License © YourNameHere
+MIT License
